@@ -9,6 +9,8 @@ const rubyBuilderVersions = require('./ruby-builder-versions')
 const builderReleaseTag = 'enable-shared'
 const releasesURL = 'https://github.com/ruby/ruby-builder/releases'
 
+const isWin = (os.platform() === 'win32')
+
 export function getAvailableVersions(platform, engine) {
   return rubyBuilderVersions.getVersions(platform)[engine]
 }
@@ -18,6 +20,10 @@ export async function install(platform, engine, version) {
   let newPathEntries
   if (engine === 'rubinius') {
     newPathEntries = [path.join(rubyPrefix, 'bin'), path.join(rubyPrefix, 'gems', 'bin')]
+  } else if (isWin) {
+    // need msys2 entries for Bash shell use
+    const msys2 = 'C:\\msys64'
+    newPathEntries = [path.join(rubyPrefix, 'bin'), `${msys2}\\mingw64\\bin`, `${msys2}\\usr\\bin`]
   } else {
     newPathEntries = [path.join(rubyPrefix, 'bin')]
   }
@@ -25,7 +31,10 @@ export async function install(platform, engine, version) {
 }
 
 async function downloadAndExtract(platform, engine, version) {
-  const rubiesDir = path.join(os.homedir(), '.rubies')
+  const rubiesDir = isWin ?
+    `${(process.env['GITHUB_WORKSPACE'] || 'C')[0]}:` :
+    path.join(os.homedir(), '.rubies')
+
   await io.mkdirP(rubiesDir)
 
   const downloadPath = await common.measure('Downloading Ruby', async () => {
@@ -35,12 +44,11 @@ async function downloadAndExtract(platform, engine, version) {
   })
 
   await common.measure('Extracting Ruby', async () => {
-    if (process.env.ImageOS === 'win16') {
-      const tar = '"C:\\Program Files\\Git\\usr\\bin\\tar.exe"'
-      await exec.exec(tar, [ '-xz', '-C', common.win2nix(rubiesDir), '-f', common.win2nix(downloadPath) ])
+    // Windows 2016 doesn't have system tar, use Git's, it needs unix style paths
+    if (isWin) {
+      await exec.exec(`"C:\\Program Files\\Git\\usr\\bin\\tar.exe"`, [ '-xz', '-C', common.win2nix(rubiesDir), '-f', common.win2nix(downloadPath) ])
     } else {
-      const tar = platform.startsWith('windows') ? 'C:\\Windows\\system32\\tar.exe' : 'tar'
-      await exec.exec(tar, [ '-xz', '-C', rubiesDir, '-f',  downloadPath ])
+      await exec.exec('tar', [ '-xz', '-C', rubiesDir, '-f',  downloadPath ])
     }
   })
 

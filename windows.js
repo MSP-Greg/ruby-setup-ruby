@@ -57,19 +57,6 @@ export async function install(platform, engine, version) {
   return [rubyPrefix, newPathEntries]
 }
 
-// Remove when Actions Windows image contains MSYS2 install
-async function symLinkToEmbeddedMSYS2() {
-  const toolCacheVersions = tc.findAllVersions('Ruby')
-  toolCacheVersions.sort()
-  if (toolCacheVersions.length === 0) {
-    throw new Error('Could not find MSYS2 in the toolcache')
-  }
-  const latestVersion = toolCacheVersions.slice(-1)[0]
-  const hostedRuby = tc.find('Ruby', latestVersion)
-  await common.measure('Linking MSYS2', async () =>
-    exec.exec(`cmd /c mklink /D ${msys2} ${hostedRuby}\\msys64`))
-}
-
 async function setupMingw(version) {
   core.exportVariable('MAKE', 'make.exe')
 
@@ -80,11 +67,6 @@ async function setupMingw(version) {
 
     return msysPathEntries
   } else {
-    // Remove when Actions Windows image contains MSYS2 install
-    if (!fs.existsSync(msys2)) {
-      await symLinkToEmbeddedMSYS2()
-    }
-
     return msys2PathEntries
   }
 }
@@ -118,11 +100,6 @@ async function setupMSWin() {
     fs.copyFileSync(certFile, cert)
   }
 
-  // Remove when Actions Windows image contains MSYS2 install
-  if (!fs.existsSync(msys2)) {
-    await symLinkToEmbeddedMSYS2()
-  }
-
   const VCPathEntries = await common.measure('Setting up MSVC environment', async () =>
     addVCVARSEnv())
 
@@ -149,8 +126,9 @@ export function addVCVARSEnv() {
   let newPathEntries = undefined
   for (let [k, v] of newEnv) {
     if (process.env[k] !== v) {
-      if (k === 'Path') {
-        newPathEntries = v.replace(process.env['Path'], '').split(path.delimiter)
+      if (/^Path$/i.test(k)) {
+        const newPathStr = v.replace(`$(path.delimiter)${process.env['Path']}`, '')
+        newPathEntries = newPathStr.split(path.delimiter)
       } else {
         core.exportVariable(k, v)
       }

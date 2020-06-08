@@ -2192,6 +2192,8 @@ const exec = __webpack_require__(986)
 const cache = __webpack_require__(692)
 const common = __webpack_require__(239)
 
+const ENV = process.env
+
 const inputDefaults = {
   'ruby-version': 'default',
   'bundler': 'default',
@@ -2212,7 +2214,7 @@ async function run() {
 async function setupRuby(options = {}) {
   const inputs = { ...options }
   for (const key in inputDefaults) {
-    if (!inputs.hasOwnProperty(key)) {
+    if (!Object.prototype.hasOwnProperty.call(inputs, key)) {
       inputs[key] = core.getInput(key) || inputDefaults[key]
     }
   }
@@ -2233,6 +2235,8 @@ async function setupRuby(options = {}) {
   const version = validateRubyEngineAndVersion(platform, engineVersions, engine, parsedVersion)
 
   createGemRC()
+
+  envPreInstall()
 
   const [rubyPrefix, newPathEntries] = await installer.install(platform, engine, version)
 
@@ -2337,6 +2341,18 @@ function setupPath(newPathEntries) {
   }
 
   core.exportVariable('PATH', [...newPathEntries, ...cleanPath].join(path.delimiter))
+}
+
+// sets up ENV for Ruby installation
+function envPreInstall() {
+  if (os.platform() === 'win32') {
+    // puts normal Ruby temp folder on SSD
+    core.exportVariable('TMPDIR', ENV['RUNNER_TEMP'])
+    // bash - sets home to match native windows, normally C:\Users\<user name>
+    core.exportVariable('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
+    // bash - needed to maintain Path from Windows
+    core.exportVariable('MSYS2_PATH_TYPE', 'inherit')
+  }
 }
 
 function readBundledWithFromGemfileLock() {
@@ -5968,6 +5984,8 @@ const rubyBuilderVersions = __webpack_require__(156)
 const builderReleaseTag = 'enable-shared'
 const releasesURL = 'https://github.com/ruby/ruby-builder/releases'
 
+const isWin = (os.platform() === 'win32')
+
 function getAvailableVersions(platform, engine) {
   return rubyBuilderVersions.getVersions(platform)[engine]
 }
@@ -5977,6 +5995,10 @@ async function install(platform, engine, version) {
   let newPathEntries
   if (engine === 'rubinius') {
     newPathEntries = [path.join(rubyPrefix, 'bin'), path.join(rubyPrefix, 'gems', 'bin')]
+  } else if (isWin) {
+    // need msys2 entries for Bash shell use
+    const msys2 = 'C:\\msys64'
+    newPathEntries = [path.join(rubyPrefix, 'bin'), `${msys2}\\mingw64\\bin`, `${msys2}\\usr\\bin`]
   } else {
     newPathEntries = [path.join(rubyPrefix, 'bin')]
   }
@@ -5984,7 +6006,10 @@ async function install(platform, engine, version) {
 }
 
 async function downloadAndExtract(platform, engine, version) {
-  const rubiesDir = path.join(os.homedir(), '.rubies')
+  const rubiesDir = isWin ?
+    `${(process.env['GITHUB_WORKSPACE'] || 'C')[0]}:` :
+    path.join(os.homedir(), '.rubies')
+
   await io.mkdirP(rubiesDir)
 
   const downloadPath = await common.measure('Downloading Ruby', async () => {
@@ -5994,12 +6019,11 @@ async function downloadAndExtract(platform, engine, version) {
   })
 
   await common.measure('Extracting Ruby', async () => {
-    if (process.env.ImageOS === 'win16') {
-      const tar = '"C:\\Program Files\\Git\\usr\\bin\\tar.exe"'
-      await exec.exec(tar, [ '-xz', '-C', common.win2nix(rubiesDir), '-f', common.win2nix(downloadPath) ])
+    // Windows 2016 doesn't have system tar, use Git's, it needs unix style paths
+    if (isWin) {
+      await exec.exec(`"C:\\Program Files\\Git\\usr\\bin\\tar.exe"`, [ '-xz', '-C', common.win2nix(rubiesDir), '-f', common.win2nix(downloadPath) ])
     } else {
-      const tar = platform.startsWith('windows') ? 'C:\\Windows\\system32\\tar.exe' : 'tar'
-      await exec.exec(tar, [ '-xz', '-C', rubiesDir, '-f',  downloadPath ])
+      await exec.exec('tar', [ '-xz', '-C', rubiesDir, '-f',  downloadPath ])
     }
   })
 
@@ -7583,19 +7607,6 @@ async function install(platform, engine, version) {
   return [rubyPrefix, newPathEntries]
 }
 
-// Remove when Actions Windows image contains MSYS2 install
-async function symLinkToEmbeddedMSYS2() {
-  const toolCacheVersions = tc.findAllVersions('Ruby')
-  toolCacheVersions.sort()
-  if (toolCacheVersions.length === 0) {
-    throw new Error('Could not find MSYS2 in the toolcache')
-  }
-  const latestVersion = toolCacheVersions.slice(-1)[0]
-  const hostedRuby = tc.find('Ruby', latestVersion)
-  await common.measure('Linking MSYS2', async () =>
-    exec.exec(`cmd /c mklink /D ${msys2} ${hostedRuby}\\msys64`))
-}
-
 async function setupMingw(version) {
   core.exportVariable('MAKE', 'make.exe')
 
@@ -7606,11 +7617,6 @@ async function setupMingw(version) {
 
     return msysPathEntries
   } else {
-    // Remove when Actions Windows image contains MSYS2 install
-    if (!fs.existsSync(msys2)) {
-      await symLinkToEmbeddedMSYS2()
-    }
-
     return msys2PathEntries
   }
 }
@@ -7644,11 +7650,6 @@ async function setupMSWin() {
     fs.copyFileSync(certFile, cert)
   }
 
-  // Remove when Actions Windows image contains MSYS2 install
-  if (!fs.existsSync(msys2)) {
-    await symLinkToEmbeddedMSYS2()
-  }
-
   const VCPathEntries = await common.measure('Setting up MSVC environment', async () =>
     addVCVARSEnv())
 
@@ -7675,8 +7676,9 @@ function addVCVARSEnv() {
   let newPathEntries = undefined
   for (let [k, v] of newEnv) {
     if (process.env[k] !== v) {
-      if (k === 'Path') {
-        newPathEntries = v.replace(process.env['Path'], '').split(path.delimiter)
+      if (/^Path$/i.test(k)) {
+        const newPathStr = v.replace(`$(path.delimiter)${process.env['Path']}`, '')
+        newPathEntries = newPathStr.split(path.delimiter)
       } else {
         core.exportVariable(k, v)
       }

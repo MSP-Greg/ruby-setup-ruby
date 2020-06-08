@@ -6,6 +6,8 @@ const exec = require('@actions/exec')
 const cache = require('@actions/cache')
 const common = require('./common')
 
+const ENV = process.env
+
 const inputDefaults = {
   'ruby-version': 'default',
   'bundler': 'default',
@@ -26,7 +28,7 @@ export async function run() {
 export async function setupRuby(options = {}) {
   const inputs = { ...options }
   for (const key in inputDefaults) {
-    if (!inputs.hasOwnProperty(key)) {
+    if (!Object.prototype.hasOwnProperty.call(inputs, key)) {
       inputs[key] = core.getInput(key) || inputDefaults[key]
     }
   }
@@ -47,6 +49,8 @@ export async function setupRuby(options = {}) {
   const version = validateRubyEngineAndVersion(platform, engineVersions, engine, parsedVersion)
 
   createGemRC()
+
+  envPreInstall()
 
   const [rubyPrefix, newPathEntries] = await installer.install(platform, engine, version)
 
@@ -151,6 +155,18 @@ function setupPath(newPathEntries) {
   }
 
   core.exportVariable('PATH', [...newPathEntries, ...cleanPath].join(path.delimiter))
+}
+
+// sets up ENV for Ruby installation
+function envPreInstall() {
+  if (os.platform() === 'win32') {
+    // puts normal Ruby temp folder on SSD
+    core.exportVariable('TMPDIR', ENV['RUNNER_TEMP'])
+    // bash - sets home to match native windows, normally C:\Users\<user name>
+    core.exportVariable('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
+    // bash - needed to maintain Path from Windows
+    core.exportVariable('MSYS2_PATH_TYPE', 'inherit')
+  }
 }
 
 function readBundledWithFromGemfileLock() {
