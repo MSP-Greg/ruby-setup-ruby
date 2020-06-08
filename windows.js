@@ -16,10 +16,6 @@ const drive = (process.env['GITHUB_WORKSPACE'] || 'C')[0]
 // needed for 2.2, 2.3, and mswin, cert file used by Git for Windows
 const certFile = 'C:\\Program Files\\Git\\mingw64\\ssl\\cert.pem'
 
-// standard MSYS2 location, found by 'devkit.rb'
-const msys2 = 'C:\\msys64'
-const msys2PathEntries = [`${msys2}\\mingw64\\bin`, `${msys2}\\usr\\bin`]
-
 // location & path for old RubyInstaller DevKit (MSYS), Ruby 2.2 and 2.3
 const msys = `${drive}:\\DevKit64`
 const msysPathEntries = [`${msys}\\mingw\\x86_64-w64-mingw32\\bin`,
@@ -57,35 +53,17 @@ export async function install(platform, engine, version) {
   return [rubyPrefix, newPathEntries]
 }
 
-// Remove when Actions Windows image contains MSYS2 install
-async function symLinkToEmbeddedMSYS2() {
-  const toolCacheVersions = tc.findAllVersions('Ruby')
-  toolCacheVersions.sort()
-  if (toolCacheVersions.length === 0) {
-    throw new Error('Could not find MSYS2 in the toolcache')
-  }
-  const latestVersion = toolCacheVersions.slice(-1)[0]
-  const hostedRuby = tc.find('Ruby', latestVersion)
-  await common.measure('Linking MSYS2', async () =>
-    exec.exec(`cmd /c mklink /D ${msys2} ${hostedRuby}\\msys64`))
-}
-
 async function setupMingw(version) {
-  core.exportVariable('MAKE', 'make.exe')
+  common.cmd.addVari('MAKE', 'make.exe')
 
   if (version.startsWith('2.2') || version.startsWith('2.3')) {
-    core.exportVariable('SSL_CERT_FILE', certFile)
+    common.cmd.addVari('SSL_CERT_FILE', certFile)
     await common.measure('Installing MSYS1', async () =>
       installMSYS(version))
 
     return msysPathEntries
   } else {
-    // Remove when Actions Windows image contains MSYS2 install
-    if (!fs.existsSync(msys2)) {
-      await symLinkToEmbeddedMSYS2()
-    }
-
-    return msys2PathEntries
+    return []
   }
 }
 
@@ -96,15 +74,15 @@ async function installMSYS(version) {
   await exec.exec('7z', ['x', downloadPath, `-o${msys}`], { silent: true })
 
   // below are set in the old devkit.rb file ?
-  core.exportVariable('RI_DEVKIT', msys)
-  core.exportVariable('CC' , 'gcc')
-  core.exportVariable('CXX', 'g++')
-  core.exportVariable('CPP', 'cpp')
+  common.cmd.addVari('RI_DEVKIT', msys)
+  common.cmd.addVari('CC' , 'gcc')
+  common.cmd.addVari('CXX', 'g++')
+  common.cmd.addVari('CPP', 'cpp')
   core.info(`Installed RubyInstaller DevKit for Ruby ${version}`)
 }
 
 async function setupMSWin() {
-  core.exportVariable('MAKE', 'nmake.exe')
+  common.cmd.addVari('MAKE', 'nmake.exe')
 
   // All standard MSVC OpenSSL builds use C:\Program Files\Common Files\SSL
   const certsDir = 'C:\\Program Files\\Common Files\\SSL\\certs'
@@ -118,15 +96,10 @@ async function setupMSWin() {
     fs.copyFileSync(certFile, cert)
   }
 
-  // Remove when Actions Windows image contains MSYS2 install
-  if (!fs.existsSync(msys2)) {
-    await symLinkToEmbeddedMSYS2()
-  }
-
   const VCPathEntries = await common.measure('Setting up MSVC environment', async () =>
     addVCVARSEnv())
 
-  return [...VCPathEntries, ...msys2PathEntries]
+  return VCPathEntries
 }
 
 /* Sets MSVC environment for use in Actions
@@ -135,7 +108,7 @@ async function setupMSWin() {
  *   this assumes a single Visual Studio version being available in the windows-latest image */
 export function addVCVARSEnv() {
   const vcVars = '"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat"'
-  core.exportVariable('VCVARS', vcVars)
+  common.cmd.addVari('VCVARS', vcVars)
 
   let newEnv = new Map()
   let cmd = `cmd.exe /c "${vcVars} && set"`
@@ -149,10 +122,11 @@ export function addVCVARSEnv() {
   let newPathEntries = undefined
   for (let [k, v] of newEnv) {
     if (process.env[k] !== v) {
-      if (k === 'Path') {
-        newPathEntries = v.replace(process.env['Path'], '').split(path.delimiter)
+      if (/^Path$/i.test(k)) {
+        const newPathStr = v.replace(`$(path.delimiter)${process.env['Path']}`, '')
+        newPathEntries = newPathStr.split(path.delimiter)
       } else {
-        core.exportVariable(k, v)
+        common.cmd.addVari(k, v)
       }
     }
   }

@@ -25,7 +25,10 @@ export async function install(platform, engine, version) {
 }
 
 async function downloadAndExtract(platform, engine, version) {
-  const rubiesDir = path.join(os.homedir(), '.rubies')
+  const rubiesDir = platform.startsWith('windows') ?
+    `${(process.env['GITHUB_WORKSPACE'] || 'C')[0]}:` :
+    path.join(os.homedir(), '.rubies')
+
   await io.mkdirP(rubiesDir)
 
   const downloadPath = await common.measure('Downloading Ruby', async () => {
@@ -35,12 +38,11 @@ async function downloadAndExtract(platform, engine, version) {
   })
 
   await common.measure('Extracting Ruby', async () => {
-    if (process.env.ImageOS === 'win16') {
-      const tar = '"C:\\Program Files\\Git\\usr\\bin\\tar.exe"'
-      await exec.exec(tar, [ '-xz', '-C', common.win2nix(rubiesDir), '-f', common.win2nix(downloadPath) ])
+    // Windows uses MSYS2 tar, so it needs unix style paths
+    if (platform.startsWith('windows')) {
+      await exec.exec('tar.exe', [ '-xz', '-C', common.win2nix(rubiesDir), '-f', common.win2nix(downloadPath) ])
     } else {
-      const tar = platform.startsWith('windows') ? 'C:\\Windows\\system32\\tar.exe' : 'tar'
-      await exec.exec(tar, [ '-xz', '-C', rubiesDir, '-f',  downloadPath ])
+      await exec.exec('tar', [ '-xz', '-C', rubiesDir, '-f',  downloadPath ])
     }
   })
 

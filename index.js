@@ -6,6 +6,8 @@ const exec = require('@actions/exec')
 const cache = require('@actions/cache')
 const common = require('./common')
 
+const ENV = process.env
+
 const inputDefaults = {
   'ruby-version': 'default',
   'bundler': 'default',
@@ -48,9 +50,11 @@ export async function setupRuby(options) {
 
   createGemRC()
 
+  envPreInstall()
+
   const [rubyPrefix, newPathEntries] = await installer.install(platform, engine, version)
 
-  setupPath(newPathEntries)
+  envPostInstall(newPathEntries)
 
   if (inputs['bundler'] !== 'none') {
     await common.measure('Installing Bundler', async () =>
@@ -128,22 +132,45 @@ function createGemRC() {
   }
 }
 
-function setupPath(newPathEntries) {
-  const originalPath = process.env['PATH'].split(path.delimiter)
-  let cleanPath = originalPath.filter(entry => !/\bruby\b/i.test(entry))
+// sets up ENV for Ruby installation
+function envPreInstall() {
+  if (os.platform() === 'win32') {
+    // puts normal Ruby temp folder on SSD
+    common.cmd.addVari('TMPDIR', ENV['RUNNER_TEMP'])
+    // bash - sets home to match native windows, normally C:\Users\<user name>
+    common.cmd.addVari('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
+    // bash - needed to maintain Path from Windows
+    common.cmd.addVari('MSYS2_PATH_TYPE', 'inherit')
+    // add MSYS2 for bash shell and RubyInstaller2 devkit
+    common.cmd.addPath(`C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin`)
+  }
+}
 
-  if (cleanPath.length !== originalPath.length) {
+// remove system Rubies if in PATH
+function cleanPath() {
+  const os_path = (os.platform() === 'win32') ? 'Path' : 'PATH'
+  const origPath = ENV[os_path].split(path.delimiter)
+
+  let noRubyPath = origPath.filter(entry => !/\bruby\b/i.test(entry))
+
+  if (origPath.length !== noRubyPath.length) {
     core.startGroup('Cleaning PATH')
     console.log('Entries removed from PATH to avoid conflicts with Ruby:')
-    for (const entry of originalPath) {
-      if (!cleanPath.includes(entry)) {
+    for (const entry of origPath) {
+      if (!noRubyPath.includes(entry)) {
         console.log(`  ${entry}`)
       }
     }
     core.endGroup()
+    ENV[os_path] = noRubyPath.join(path.delimiter)
   }
+}
 
-  core.exportVariable('PATH', [...newPathEntries, ...cleanPath].join(path.delimiter))
+// adds ENV items and pushed to runner via common.cmd
+function envPostInstall(newPathEntries) {
+  cleanPath()
+  common.cmd.addPath(`${newPathEntries.join(path.delimiter)}`)
+  common.cmd.sendAll()
 }
 
 function readBundledWithFromGemfileLock() {
