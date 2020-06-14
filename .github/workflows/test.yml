@@ -86,6 +86,25 @@ jobs:
           echo ''
         }
 
+    - name: pwsh bin test
+      shell: pwsh
+      run: |
+        git version
+        ruby -v
+        bundle version
+        gem env
+
+    - name: bash bin test
+      shell: bash
+      # windows ruby-head does not have bash bin scripts
+      if: (startsWith(matrix.os, 'windows') && matrix.ruby == 'ruby-head') == false
+      run: |
+        echo ~
+        git version
+        ruby -v
+        bundle version
+        gem env
+
   lint:
     runs-on: ubuntu-latest
     steps:
