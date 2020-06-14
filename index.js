@@ -28,7 +28,7 @@ export async function run() {
 export async function setupRuby(options) {
   const inputs = { ...options }
   for (const key in inputDefaults) {
-    if (!inputs.hasOwnProperty(key)) {
+    if (!Object.prototype.hasOwnProperty.call(inputs, key)) {
       inputs[key] = core.getInput(key) || inputDefaults[key]
     }
   }
@@ -136,11 +136,11 @@ function createGemRC() {
 function envPreInstall() {
   if (os.platform() === 'win32') {
     // puts normal Ruby temp folder on SSD
-    common.cmd.addVariable('TMPDIR', ENV['RUNNER_TEMP'])
+    core.exportVariable('TMPDIR', ENV['RUNNER_TEMP'])
     // bash - sets home to match native windows, normally C:\Users\<user name>
-    common.cmd.addVariable('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
+    core.exportVariable('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
     // bash - needed to maintain Path from Windows
-    common.cmd.addVariable('MSYS2_PATH_TYPE', 'inherit')
+    core.exportVariable('MSYS2_PATH_TYPE', 'inherit')
     // add MSYS2 for bash shell and RubyInstaller2 devkit
     common.cmd.addPath(`C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin`)
   }
@@ -148,8 +148,8 @@ function envPreInstall() {
 
 // remove system Rubies if in PATH
 function cleanPath() {
-  const os_path = (os.platform() === 'win32') ? 'Path' : 'PATH'
-  const origPath = ENV[os_path].split(path.delimiter)
+  const osPath = (os.platform() === 'win32') ? 'Path' : 'PATH'
+  const origPath = ENV[osPath].split(path.delimiter)
 
   let noRubyPath = origPath.filter(entry => !/\bruby\b/i.test(entry))
 
@@ -162,15 +162,15 @@ function cleanPath() {
       }
     }
     core.endGroup()
-    ENV[os_path] = noRubyPath.join(path.delimiter)
+    ENV[osPath] = noRubyPath.join(path.delimiter)
   }
 }
 
 // adds ENV items and pushed to runner via common.cmd
 function envPostInstall(newPathEntries) {
   cleanPath()
-  common.cmd.addPath(`${newPathEntries.join(path.delimiter)}`)
-  common.cmd.sendAll()
+  common.cmd.addPath(newPathEntries)
+  common.cmd.sendPath()
 }
 
 function readBundledWithFromGemfileLock() {

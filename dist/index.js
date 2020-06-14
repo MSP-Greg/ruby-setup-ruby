@@ -2214,7 +2214,7 @@ async function run() {
 async function setupRuby(options) {
   const inputs = { ...options }
   for (const key in inputDefaults) {
-    if (!inputs.hasOwnProperty(key)) {
+    if (!Object.prototype.hasOwnProperty.call(inputs, key)) {
       inputs[key] = core.getInput(key) || inputDefaults[key]
     }
   }
@@ -2322,11 +2322,11 @@ function createGemRC() {
 function envPreInstall() {
   if (os.platform() === 'win32') {
     // puts normal Ruby temp folder on SSD
-    common.cmd.addVariable('TMPDIR', ENV['RUNNER_TEMP'])
+    core.exportVariable('TMPDIR', ENV['RUNNER_TEMP'])
     // bash - sets home to match native windows, normally C:\Users\<user name>
-    common.cmd.addVariable('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
+    core.exportVariable('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
     // bash - needed to maintain Path from Windows
-    common.cmd.addVariable('MSYS2_PATH_TYPE', 'inherit')
+    core.exportVariable('MSYS2_PATH_TYPE', 'inherit')
     // add MSYS2 for bash shell and RubyInstaller2 devkit
     common.cmd.addPath(`C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin`)
   }
@@ -2334,8 +2334,8 @@ function envPreInstall() {
 
 // remove system Rubies if in PATH
 function cleanPath() {
-  const os_path = (os.platform() === 'win32') ? 'Path' : 'PATH'
-  const origPath = ENV[os_path].split(path.delimiter)
+  const osPath = (os.platform() === 'win32') ? 'Path' : 'PATH'
+  const origPath = ENV[osPath].split(path.delimiter)
 
   let noRubyPath = origPath.filter(entry => !/\bruby\b/i.test(entry))
 
@@ -2348,15 +2348,15 @@ function cleanPath() {
       }
     }
     core.endGroup()
-    ENV[os_path] = noRubyPath.join(path.delimiter)
+    ENV[osPath] = noRubyPath.join(path.delimiter)
   }
 }
 
 // adds ENV items and pushed to runner via common.cmd
 function envPostInstall(newPathEntries) {
   cleanPath()
-  common.cmd.addPath(`${newPathEntries.join(path.delimiter)}`)
-  common.cmd.sendAll()
+  common.cmd.addPath(newPathEntries)
+  common.cmd.sendPath()
 }
 
 function readBundledWithFromGemfileLock() {
@@ -3287,49 +3287,20 @@ function win2nix(path) {
 
 class CmdCls {
   constructor() {
-    this.varis = []
     this.paths = []
     this.os_path = os.platform() === 'win32' ? 'Path' : 'PATH'
     this.ENV = process.env
   }
-
-  addVariable(k,v) {
-    core.exportVariable(k, v)
-    //this.varis.push([k,v])
-    //this.ENV[k] = v
-  }
-  
+ 
   addPath(item) {
-    core.addPath(item)
-    //this.paths.unshift(item)
-    //this.ENV[this.os_path] = `${item}${path.delimiter}${this.ENV[this.os_path]}`
-  }
-
-  cmdVaris() {
-    let cmdStr = ''
-    const iterator = this.varis.values()
-    for (const kv of iterator) {
-      cmdStr = cmdStr.concat(`::set-env name=${kv[0]}::${kv[1]}${os.EOL}`)
-    }
-    return cmdStr
-  }
-  
-  sendVaris() {
-    const cmdStr = this.cmdVaris()
-    process.stdout.write(cmdStr)
+    const str = (item instanceof Array) ? item.join(path.delimiter) : item
+    this.paths.unshift(str)
+    this.ENV[this.os_path] = `${str}${path.delimiter}${this.ENV[this.os_path]}`
   }
   
   sendPath() {
     const os_path = this.os_path
     process.stdout.write(`::set-env name=${os_path}::${this.ENV[os_path]}${os.EOL}`)
-  }
-  
-  sendAll() {
-    return
-    const os_path = this.os_path
-    let cmdStr = this.cmdVaris()
-    cmdStr = cmdStr.concat(`::set-env name=${os_path}::${this.ENV[os_path]}${os.eol}`)
-    process.stdout.write(cmdStr)
   }
 }
 
@@ -7654,10 +7625,10 @@ async function install(platform, engine, version) {
 }
 
 async function setupMingw(version) {
-  common.cmd.addVariable('MAKE', 'make.exe')
+  core.exportVariable('MAKE', 'make.exe')
 
   if (version.startsWith('2.2') || version.startsWith('2.3')) {
-    common.cmd.addVariable('SSL_CERT_FILE', certFile)
+    core.exportVariable('SSL_CERT_FILE', certFile)
     await common.measure('Installing MSYS1', async () =>
       installMSYS(version))
 
@@ -7674,15 +7645,15 @@ async function installMSYS(version) {
   await exec.exec('7z', ['x', downloadPath, `-o${msys}`], { silent: true })
 
   // below are set in the old devkit.rb file ?
-  common.cmd.addVariable('RI_DEVKIT', msys)
-  common.cmd.addVariable('CC' , 'gcc')
-  common.cmd.addVariable('CXX', 'g++')
-  common.cmd.addVariable('CPP', 'cpp')
+  core.exportVariable('RI_DEVKIT', msys)
+  core.exportVariable('CC' , 'gcc')
+  core.exportVariable('CXX', 'g++')
+  core.exportVariable('CPP', 'cpp')
   core.info(`Installed RubyInstaller DevKit for Ruby ${version}`)
 }
 
 async function setupMSWin() {
-  common.cmd.addVariable('MAKE', 'nmake.exe')
+  core.exportVariable('MAKE', 'nmake.exe')
 
   // All standard MSVC OpenSSL builds use C:\Program Files\Common Files\SSL
   const certsDir = 'C:\\Program Files\\Common Files\\SSL\\certs'
@@ -7708,7 +7679,7 @@ async function setupMSWin() {
  *   this assumes a single Visual Studio version being available in the windows-latest image */
 function addVCVARSEnv() {
   const vcVars = '"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat"'
-  common.cmd.addVariable('VCVARS', vcVars)
+  core.exportVariable('VCVARS', vcVars)
 
   let newEnv = new Map()
   let cmd = `cmd.exe /c "${vcVars} && set"`
@@ -7726,7 +7697,7 @@ function addVCVARSEnv() {
         const newPathStr = v.replace(`$(path.delimiter)${process.env['Path']}`, '')
         newPathEntries = newPathStr.split(path.delimiter)
       } else {
-        common.cmd.addVariable(k, v)
+        core.exportVariable(k, v)
       }
     }
   }

@@ -54,10 +54,10 @@ export async function install(platform, engine, version) {
 }
 
 async function setupMingw(version) {
-  common.cmd.addVariable('MAKE', 'make.exe')
+  core.exportVariable('MAKE', 'make.exe')
 
   if (version.startsWith('2.2') || version.startsWith('2.3')) {
-    common.cmd.addVariable('SSL_CERT_FILE', certFile)
+    core.exportVariable('SSL_CERT_FILE', certFile)
     await common.measure('Installing MSYS1', async () =>
       installMSYS(version))
 
@@ -74,15 +74,15 @@ async function installMSYS(version) {
   await exec.exec('7z', ['x', downloadPath, `-o${msys}`], { silent: true })
 
   // below are set in the old devkit.rb file ?
-  common.cmd.addVariable('RI_DEVKIT', msys)
-  common.cmd.addVariable('CC' , 'gcc')
-  common.cmd.addVariable('CXX', 'g++')
-  common.cmd.addVariable('CPP', 'cpp')
+  core.exportVariable('RI_DEVKIT', msys)
+  core.exportVariable('CC' , 'gcc')
+  core.exportVariable('CXX', 'g++')
+  core.exportVariable('CPP', 'cpp')
   core.info(`Installed RubyInstaller DevKit for Ruby ${version}`)
 }
 
 async function setupMSWin() {
-  common.cmd.addVariable('MAKE', 'nmake.exe')
+  core.exportVariable('MAKE', 'nmake.exe')
 
   // All standard MSVC OpenSSL builds use C:\Program Files\Common Files\SSL
   const certsDir = 'C:\\Program Files\\Common Files\\SSL\\certs'
@@ -108,7 +108,7 @@ async function setupMSWin() {
  *   this assumes a single Visual Studio version being available in the windows-latest image */
 export function addVCVARSEnv() {
   const vcVars = '"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat"'
-  common.cmd.addVariable('VCVARS', vcVars)
+  core.exportVariable('VCVARS', vcVars)
 
   let newEnv = new Map()
   let cmd = `cmd.exe /c "${vcVars} && set"`
@@ -126,7 +126,7 @@ export function addVCVARSEnv() {
         const newPathStr = v.replace(`$(path.delimiter)${process.env['Path']}`, '')
         newPathEntries = newPathStr.split(path.delimiter)
       } else {
-        common.cmd.addVariable(k, v)
+        core.exportVariable(k, v)
       }
     }
   }
