@@ -71,15 +71,17 @@ class CmdCls {
     this.os_path = os.platform() === 'win32' ? 'Path' : 'PATH'
     this.ENV = process.env
   }
-  
-  addVari(k,v) {
-    this.varis.push([k,v])
+
+  addVariable(k,v) {
+    core.exportVariable(k, v)
+    //this.varis.push([k,v])
     //this.ENV[k] = v
   }
   
   addPath(item) {
-    this.paths.unshift(item)
-    this.ENV[this.os_path] = `${item}${path.delimiter}${this.ENV[this.os_path]}`
+    core.addPath(item)
+    //this.paths.unshift(item)
+    //this.ENV[this.os_path] = `${item}${path.delimiter}${this.ENV[this.os_path]}`
   }
 
   cmdVaris() {
@@ -102,6 +104,7 @@ class CmdCls {
   }
   
   sendAll() {
+    return
     const os_path = this.os_path
     let cmdStr = this.cmdVaris()
     cmdStr = cmdStr.concat(`::set-env name=${os_path}::${this.ENV[os_path]}${os.eol}`)

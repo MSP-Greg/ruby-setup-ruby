@@ -136,11 +136,11 @@ function createGemRC() {
 function envPreInstall() {
   if (os.platform() === 'win32') {
     // puts normal Ruby temp folder on SSD
-    common.cmd.addVari('TMPDIR', ENV['RUNNER_TEMP'])
+    common.cmd.addVariable('TMPDIR', ENV['RUNNER_TEMP'])
     // bash - sets home to match native windows, normally C:\Users\<user name>
-    common.cmd.addVari('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
+    common.cmd.addVariable('HOME', ENV['HOMEDRIVE'] + ENV['HOMEPATH'])
     // bash - needed to maintain Path from Windows
-    common.cmd.addVari('MSYS2_PATH_TYPE', 'inherit')
+    common.cmd.addVariable('MSYS2_PATH_TYPE', 'inherit')
     // add MSYS2 for bash shell and RubyInstaller2 devkit
     common.cmd.addPath(`C:\\msys64\\mingw64\\bin;C:\\msys64\\usr\\bin`)
   }
