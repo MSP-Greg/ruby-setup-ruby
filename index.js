@@ -163,14 +163,15 @@ function cleanPath() {
     }
     core.endGroup()
     ENV[osPath] = noRubyPath.join(path.delimiter)
-  }
+    return true
+  } else { return false }
 }
 
 // adds ENV items and pushed to runner via common.cmd
 function envPostInstall(newPathEntries) {
-  cleanPath()
+  const needToSend = cleanPath()
   common.cmd.addPath(newPathEntries)
-  common.cmd.sendPath()
+  common.cmd.sendPath(needToSend)
 }
 
 function readBundledWithFromGemfileLock() {

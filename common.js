@@ -66,20 +66,22 @@ export function win2nix(path) {
 
 class CmdCls {
   constructor() {
-    this.paths = []
+    this.paths = 0
     this.os_path = os.platform() === 'win32' ? 'Path' : 'PATH'
     this.ENV = process.env
   }
  
   addPath(item) {
     const str = (item instanceof Array) ? item.join(path.delimiter) : item
-    this.paths.unshift(str)
+    this.paths ++
     this.ENV[this.os_path] = `${str}${path.delimiter}${this.ENV[this.os_path]}`
   }
   
-  sendPath() {
+  sendPath(needToSend) {
     const os_path = this.os_path
-    process.stdout.write(`::set-env name=${os_path}::${this.ENV[os_path]}${os.EOL}`)
+    if (needToSend || this.paths !== 0) {
+      process.stdout.write(`::set-env name=${os_path}::${this.ENV[os_path]}${os.EOL}`)
+    }
   }
 }
 
