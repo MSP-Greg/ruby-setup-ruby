@@ -42,7 +42,6 @@ jobs:
         ruby-version: ${{ matrix.ruby }}
 
     - name: bash test_ruby.rb
-      if: (startsWith(matrix.os, 'windows') && (matrix.ruby == 'ruby-head')) == false
       shell: bash
       run: |
         echo OSTYPE $OSTYPE
@@ -70,7 +69,7 @@ jobs:
     - run: bundle exec rake --version
 
     - name: which ruby, rake
-      if: "!startsWith(matrix.os, 'windows')"
+      shell: bash
       run: which -a ruby rake bash
 
     - name: where ruby, rake, bash
