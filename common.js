@@ -79,17 +79,16 @@ export function setupPath(newPathEntries) {
         console.log(`  ${entry}`)
       }
     }
-    let newPath
-    if (isWin) {
-      // add MSYS2 path to all for bash shell
-      const msys2 = ['C:\\msys64\\mingw64\\bin', 'C:\\msys64\\usr\\bin']
-      newPath = [...newPathEntries, ...msys2, ...cleanPath]
-    } else {
-      newPath = [...newPathEntries, ...cleanPath]
-    }
-    core.exportVariable(envPath, newPath.join(path.delimiter))
+    core.exportVariable(envPath, cleanPath.join(path.delimiter))
     core.endGroup()
   }
-
-
+  let newPath
+  if (isWin) {
+    // add MSYS2 path to all for bash shell
+    const msys2 = ['C:\\msys64\\mingw64\\bin', 'C:\\msys64\\usr\\bin']
+    newPath = [...newPathEntries, ...msys2]
+  } else {
+    newPath = newPathEntries
+  }
+  core.addPath(newPath.join(path.delimiter))
 }
