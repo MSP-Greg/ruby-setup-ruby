@@ -26,12 +26,10 @@ async function downloadAndExtract(platform, engine, version) {
     path.join(os.homedir(), '.rubies')
 
   const rubyPrefix = path.join(rubiesDir, `${engine}-${version}`)
-  let newPathEntries
-  if (engine === 'rubinius') {
-    newPathEntries = [path.join(rubyPrefix, 'bin'), path.join(rubyPrefix, 'gems', 'bin')]
-  } else {
-    newPathEntries = [path.join(rubyPrefix, 'bin')]
-  }
+  const newPathEntries = (engine === 'rubinius') ?
+    [path.join(rubyPrefix, 'bin'), path.join(rubyPrefix, 'gems', 'bin')] :
+    [path.join(rubyPrefix, 'bin')]
+
   common.setupPath(newPathEntries)
 
   await io.mkdirP(rubiesDir)
@@ -45,7 +43,7 @@ async function downloadAndExtract(platform, engine, version) {
   await common.measure('Extracting Ruby', async () => {
     // Windows 2016 doesn't have system tar, use MSYS2's, it needs unix style paths
     if (isWin) {
-      await exec.exec(`"C:\\msys64\\usr\\bin\\tar.exe"`, [ '-xz', '-C', common.win2nix(rubiesDir), '-f', common.win2nix(downloadPath) ])
+      await exec.exec('tar', [ '-xz', '-C', common.win2nix(rubiesDir), '-f', common.win2nix(downloadPath) ])
     } else {
       await exec.exec('tar', [ '-xz', '-C', rubiesDir, '-f',  downloadPath ])
     }
