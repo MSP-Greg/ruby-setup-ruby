@@ -67,7 +67,7 @@ async function setupMingw(version) {
 
     return msysPathEntries
   } else {
-    return msys2PathEntries
+    return []
   }
 }
 

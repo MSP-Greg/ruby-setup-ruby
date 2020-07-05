@@ -20,10 +20,6 @@ export async function install(platform, engine, version) {
   let newPathEntries
   if (engine === 'rubinius') {
     newPathEntries = [path.join(rubyPrefix, 'bin'), path.join(rubyPrefix, 'gems', 'bin')]
-  } else if (isWin) {
-    // need msys2 entries for Bash shell use
-    const msys2 = 'C:\\msys64'
-    newPathEntries = [path.join(rubyPrefix, 'bin'), `${msys2}\\mingw64\\bin`, `${msys2}\\usr\\bin`]
   } else {
     newPathEntries = [path.join(rubyPrefix, 'bin')]
   }

@@ -6,7 +6,7 @@ const exec = require('@actions/exec')
 const cache = require('@actions/cache')
 const common = require('./common')
 
-const ENV = process.env
+const isWin = (os.platform() === 'win32')
 
 const inputDefaults = {
   'ruby-version': 'default',
@@ -140,25 +140,34 @@ function createGemRC() {
 }
 
 function setupPath(newPathEntries) {
-  const originalPath = process.env['PATH'].split(path.delimiter)
+  if (isWin) {
+    // add MSYS2 path to all for bash shell
+    const msys2 = ['C:\\msys64\\mingw64\\bin', 'C:\\msys64\\usr\\bin']
+    core.addPath([...newPathEntries, ...msys2].join(path.delimiter))
+  } else {
+    core.addPath(newPathEntries.join(path.delimiter))
+  }
+}
+
+// sets up ENV for Ruby installation
+function envPreInstall() {
+  const envPath = isWin ? 'Path' : 'PATH'
+  const originalPath = process.env[envPath].split(path.delimiter)
   let cleanPath = originalPath.filter(entry => !/\bruby\b/i.test(entry))
 
   if (cleanPath.length !== originalPath.length) {
-    core.startGroup('Cleaning PATH')
-    console.log('Entries removed from PATH to avoid conflicts with Ruby:')
+    core.startGroup(`Cleaning ${envPath}`)
+    console.log(`Entries removed from ${envPath} to avoid conflicts with Ruby:`)
     for (const entry of originalPath) {
       if (!cleanPath.includes(entry)) {
         console.log(`  ${entry}`)
       }
     }
+    core.exportVariable(envPath, cleanPath.join(path.delimiter))
     core.endGroup()
   }
 
-  core.exportVariable('PATH', [...newPathEntries, ...cleanPath].join(path.delimiter))
-}
-
-// sets up ENV for Ruby installation
-function envPreInstall() {
+  const ENV = process.env
   if (os.platform() === 'win32') {
     // puts normal Ruby temp folder on SSD
     core.exportVariable('TMPDIR', ENV['RUNNER_TEMP'])
