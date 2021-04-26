@@ -28203,11 +28203,11 @@ exports.debug = debug; // for test
 __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "versions", function() { return versions; });
 const versions = {
-  "2.1.9": "https://dl.bintray.com/oneclick/rubyinstaller/ruby-2.1.9-x64-mingw32.7z",
-  "2.2.6": "https://dl.bintray.com/oneclick/rubyinstaller/ruby-2.2.6-x64-mingw32.7z",
+  "2.1.9": "https://github.com/MSP-Greg/ruby-msys2-package-archive/releases/download/v-old-msys/ruby-2.1.9-x64-mingw32.7z",
+  "2.2.6": "https://github.com/MSP-Greg/ruby-msys2-package-archive/releases/download/v-old-msys/ruby-2.2.6-x64-mingw32.7z",
   "2.3.0": "https://dl.bintray.com/oneclick/rubyinstaller/ruby-2.3.0-x64-mingw32.7z",
   "2.3.1": "https://dl.bintray.com/oneclick/rubyinstaller/ruby-2.3.1-x64-mingw32.7z",
-  "2.3.3": "https://dl.bintray.com/oneclick/rubyinstaller/ruby-2.3.3-x64-mingw32.7z",
+  "2.3.3": "https://github.com/MSP-Greg/ruby-msys2-package-archive/releases/download/v-old-msys/ruby-2.3.3-x64-mingw32.7z",
   "2.4.1": "https://github.com/oneclick/rubyinstaller2/releases/download/2.4.1-2/rubyinstaller-2.4.1-2-x64.7z",
   "2.4.2": "https://github.com/oneclick/rubyinstaller2/releases/download/rubyinstaller-2.4.2-2/rubyinstaller-2.4.2-2-x64.7z",
   "2.4.3": "https://github.com/oneclick/rubyinstaller2/releases/download/rubyinstaller-2.4.3-2/rubyinstaller-2.4.3-2-x64.7z",
