@@ -1,6 +1,7 @@
 const os = require('os')
 const path = require('path')
 const fs = require('fs')
+const cp = require('child_process')
 const util = require('util')
 const stream = require('stream')
 const crypto = require('crypto')
@@ -170,8 +171,18 @@ export function setupPath(newPathEntries) {
   // Then add new path entries using core.addPath()
   let newPath
   if (windows) {
+    let build_sys = 'mingw64'
+    const cmd = `dir ${newPathEntries[0]}\\x64-ucrt-ruby*.dll /B`
+    try {
+      if (cp.execSync(cmd).toString().startsWith('x64-ucrt-ruby')) {
+        build_sys = 'ucrt64'
+      }
+    } catch (ex) {
+    }
+    console.log(build_sys)
     // add MSYS2 in path for all Rubies on Windows, as it provides a better bash shell and a native toolchain
-    const msys2 = ['C:\\msys64\\mingw64\\bin', 'C:\\msys64\\usr\\bin']
+    const msys2 = [`C:\\msys64\\${build_sys}\\bin`, 'C:\\msys64\\usr\\bin']
+    console.log(msys2)
     newPath = [...newPathEntries, ...msys2]
   } else {
     newPath = newPathEntries

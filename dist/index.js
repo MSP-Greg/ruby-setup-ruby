@@ -27790,11 +27790,11 @@ async function install(platform, engine, version) {
 
   let toolchainPaths = (version === 'mswin') ? await setupMSWin() : await setupMingw(version)
 
-  common.setupPath([`${rubyPrefix}\\bin`, ...toolchainPaths])
-
   if (!inToolCache) {
     await downloadAndExtract(engine, version, url, base, rubyPrefix);
   }
+
+  common.setupPath([`${rubyPrefix}\\bin`, ...toolchainPaths])
 
   return rubyPrefix
 }
@@ -32797,6 +32797,7 @@ __webpack_require__.r(__webpack_exports__);
 const os = __webpack_require__(87)
 const path = __webpack_require__(622)
 const fs = __webpack_require__(747)
+const cp = __webpack_require__(129)
 const util = __webpack_require__(669)
 const stream = __webpack_require__(413)
 const crypto = __webpack_require__(417)
@@ -32966,8 +32967,18 @@ function setupPath(newPathEntries) {
   // Then add new path entries using core.addPath()
   let newPath
   if (windows) {
+    let build_sys = 'mingw64'
+    const cmd = `dir ${newPathEntries[0]}\\x64-ucrt-ruby*.dll /B`
+    try {
+      if (cp.execSync(cmd).toString().startsWith('x64-ucrt-ruby')) {
+        build_sys = 'ucrt64'
+      }
+    } catch (ex) {
+    }
+    console.log(build_sys)
     // add MSYS2 in path for all Rubies on Windows, as it provides a better bash shell and a native toolchain
-    const msys2 = ['C:\\msys64\\mingw64\\bin', 'C:\\msys64\\usr\\bin']
+    const msys2 = [`C:\\msys64\\${build_sys}\\bin`, 'C:\\msys64\\usr\\bin']
+    console.log(msys2)
     newPath = [...newPathEntries, ...msys2]
   } else {
     newPath = newPathEntries
