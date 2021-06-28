@@ -157,6 +157,7 @@ function rubyIsUCRT(path) {
 }
 
 export function setupPath(newPathEntries) {
+  let win_build_sys = null
   const envPath = windows ? 'Path' : 'PATH'
   const originalPath = process.env[envPath].split(path.delimiter)
   let cleanPath = originalPath.filter(entry => !/\bruby\b/i.test(entry))
@@ -178,10 +179,10 @@ export function setupPath(newPathEntries) {
   let newPath
   if (windows) {
     // main Ruby dll determines whether mingw or ucrt build
-    let build_sys = rubyIsUCRT(newPathEntries[0]) ? 'ucrt64' : 'mingw64'
+    win_build_sys = rubyIsUCRT(newPathEntries[0]) ? 'ucrt64' : 'mingw64'
 
     // add MSYS2 in path for all Rubies on Windows, as it provides a better bash shell and a native toolchain
-    const msys2 = [`C:\\msys64\\${build_sys}\\bin`, 'C:\\msys64\\usr\\bin']
+    const msys2 = [`C:\\msys64\\${win_build_sys}\\bin`, 'C:\\msys64\\usr\\bin']
     newPath = [...newPathEntries, ...msys2]
   } else {
     newPath = newPathEntries
@@ -193,4 +194,5 @@ export function setupPath(newPathEntries) {
   core.endGroup()
 
   core.addPath(newPath.join(path.delimiter))
+  return win_build_sys
 }

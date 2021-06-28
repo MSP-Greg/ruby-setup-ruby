@@ -398,6 +398,7 @@ function rubyIsUCRT(path) {
 }
 
 function setupPath(newPathEntries) {
+  let win_build_sys = null
   const envPath = windows ? 'Path' : 'PATH'
   const originalPath = process.env[envPath].split(path.delimiter)
   let cleanPath = originalPath.filter(entry => !/\bruby\b/i.test(entry))
@@ -419,10 +420,10 @@ function setupPath(newPathEntries) {
   let newPath
   if (windows) {
     // main Ruby dll determines whether mingw or ucrt build
-    let build_sys = rubyIsUCRT(newPathEntries[0]) ? 'ucrt64' : 'mingw64'
+    win_build_sys = rubyIsUCRT(newPathEntries[0]) ? 'ucrt64' : 'mingw64'
 
     // add MSYS2 in path for all Rubies on Windows, as it provides a better bash shell and a native toolchain
-    const msys2 = [`C:\\msys64\\${build_sys}\\bin`, 'C:\\msys64\\usr\\bin']
+    const msys2 = [`C:\\msys64\\${win_build_sys}\\bin`, 'C:\\msys64\\usr\\bin']
     newPath = [...newPathEntries, ...msys2]
   } else {
     newPath = newPathEntries
@@ -434,6 +435,7 @@ function setupPath(newPathEntries) {
   core.endGroup()
 
   core.addPath(newPath.join(path.delimiter))
+  return win_build_sys
 }
 
 
@@ -59017,9 +59019,23 @@ async function install(platform, engine, version) {
     await downloadAndExtract(engine, version, url, base, rubyPrefix);
   }
 
-  common.setupPath([`${rubyPrefix}\\bin`, ...toolchainPaths])
+  if (common.setupPath([`${rubyPrefix}\\bin`, ...toolchainPaths]) === 'ucrt64') {
+    await installUCRT()
+  }
 
   return rubyPrefix
+}
+
+async function installUCRT() {
+  await common.measure('Installing MSYS2 UCRT build tools', async () => {
+    const args = '--noconfirm --noprogressbar --needed'
+    const pre = ' mingw-w64-ucrt-x86_64-'
+    cp.execSync("sed -i 's/^CheckSpace/#CheckSpace/g' C:/msys64/etc/pacman.conf")
+    cp.execSync(`pacman.exe -Sy ${args} pacman-mirrors`)
+    let gccPkgs = ['', 'binutils', 'crt', 'dlfcn', 'headers', 'libiconv', 'isl', 'make', 'mpc', 'mpfr', 'pkgconf', 'windows-default-manifest', 'libwinpthread', 'libyaml', 'winpthreads', 'zlib', 'gcc-libs', 'gcc']
+    cp.execSync(`pacman.exe -S ${args} ${gccPkgs.join(pre)}`)
+    core.endGroup
+  })
 }
 
 async function downloadAndExtract(engine, version, url, base, rubyPrefix) {
