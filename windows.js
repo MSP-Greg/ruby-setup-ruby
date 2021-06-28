@@ -63,12 +63,13 @@ export async function install(platform, engine, version) {
 
 async function installUCRT() {
   await common.measure('Installing MSYS2 UCRT build tools', async () => {
+    const execSyncOpts = {stdio: ['ignore', 'inherit', 'inherit']}
     const args = '--noconfirm --noprogressbar --needed'
     const pre = ' mingw-w64-ucrt-x86_64-'
-    cp.execSync("sed -i 's/^CheckSpace/#CheckSpace/g' C:/msys64/etc/pacman.conf")
-    cp.execSync(`pacman.exe -Sy ${args} pacman-mirrors`)
-    let gccPkgs = ['', 'binutils', 'crt', 'dlfcn', 'headers', 'libiconv', 'isl', 'make', 'mpc', 'mpfr', 'pkgconf', 'windows-default-manifest', 'libwinpthread', 'libyaml', 'winpthreads', 'zlib', 'gcc-libs', 'gcc']
-    cp.execSync(`pacman.exe -S ${args} ${gccPkgs.join(pre)}`)
+    cp.execSync("sed -i 's/^CheckSpace/#CheckSpace/g' C:/msys64/etc/pacman.conf", execSyncOpts)
+    cp.execSync(`pacman.exe -Sy ${args} pacman-mirrors`, execSyncOpts)
+    let gccPkgs = ['', 'dlfcn', 'make', 'pkgconf', 'libyaml', 'gcc']
+    cp.execSync(`pacman.exe -S ${args} ${gccPkgs.join(pre)}`, execSyncOpts)
     core.endGroup
   })
 }
