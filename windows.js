@@ -55,13 +55,25 @@ export async function install(platform, engine, version) {
   }
 
   if (common.setupPath([`${rubyPrefix}\\bin`, ...toolchainPaths]) === 'ucrt64') {
-    await installUCRT()
+    await installGCC('ucrt64')
   }
 
   return rubyPrefix
 }
 
-async function installUCRT() {
+async function installGCC(type) {
+  const downloadPath = await common.measure(`Download ${type} build tools`, async () => {
+    let url = `https://github.com/MSP-Greg/setup-msys2-gcc/releases/download/msys2-gcc-pkgs/${type}.7z`
+    console.log(url)
+    return await tc.downloadTool(url)
+  })
+
+  await common.measure(`Extracting ${type} build tools`, async () =>
+    // -aoa overwrite existing, -bd disable progress indicator
+    exec.exec('7z', ['x', downloadPath, '-aoa', '-bd', '-oC:\\msys64'], { silent: true }))
+}
+
+async function old_installUCRT() {
   await common.measure('Installing MSYS2 UCRT build tools', async () => {
     const execSyncOpts = {stdio: ['ignore', 'inherit', 'inherit']}
     const args = '--noconfirm --noprogressbar --needed'
@@ -83,7 +95,7 @@ async function downloadAndExtract(engine, version, url, base, rubyPrefix) {
   })
 
   await common.measure('Extracting Ruby', async () =>
-    exec.exec('7z', ['x', downloadPath, `-xr!${base}\\share\\doc`, `-o${parentDir}`], { silent: true }))
+    exec.exec('7z', ['x', downloadPath, '-bd', `-xr!${base}\\share\\doc`, `-o${parentDir}`], { silent: true }))
 
   if (base !== path.basename(rubyPrefix)) {
     await io.mv(path.join(parentDir, base), rubyPrefix)
